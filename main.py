@@ -14,6 +14,7 @@ def main():
 
     while generation <= MAX_GENERATIONS and env.max_score < fitness.max_score:
         env.run()
+        generation += 1
 
 if __name__ == "__main__":
     main()
