@@ -12,7 +12,7 @@ def main():
     env.seed(GENERATION_SIZE, GENOME_LENGTH)
     generation = 1
 
-    while generation <= MAX_GENERATIONS and env.max_score < fitness.max_score:
+    while generation < MAX_GENERATIONS and env.max_score < fitness.max_score:
         env.run()
         generation += 1
 
