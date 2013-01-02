@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-
-import pprint
 import random
 
 
@@ -15,7 +12,7 @@ class Individual(object):
     def breed(self, partner, mutation_chance):
         """ Breed this individual with another and generate two children """
         children = []
-      
+
         genes = self.genome.crossover(partner.genome, mutation_chance)
         [children.append(Individual(g, self, partner)) for g in genes]
 
@@ -43,10 +40,13 @@ class Genome(object):
 
     def mutate(self, chance):
         """ Mutate this genome if chance """
-        if random.random() <= chance:      
+        if random.random() <= chance:
             splice = random.randint(0, len(self.genes) - 1)
-            chars = Genome.chromosomes.replace(self.genes[splice], '') # don't replace chromosome with same one
-            self.genes = self.genes[:splice] + Genome.get_random_string(1, chars) + self.genes[splice + 1:]
+            # don't replace chromosome with same one
+            chars = Genome.chromosomes.replace(self.genes[splice], '')
+            self.genes = (self.genes[:splice] +
+                          Genome.get_random_string(1, chars) +
+                          self.genes[splice + 1:])
 
     def __str__(self):
         return self.genes
@@ -72,16 +72,17 @@ class Generation(object):
         """ Display the highest scoring individuals in this generation """
         def output_helper(i):
             print "%s %d %s | %s x %s" % (
-                i.genome.genes, 
-                i.fitness, 
-                '*' if i.genome.mutant else ' ', 
-                i.parent1.genome if i.parent1 else 'none', 
+                i.genome.genes,
+                i.fitness,
+                '*' if i.genome.mutant else ' ',
+                i.parent1.genome if i.parent1 else 'none',
                 i.parent2.genome if i.parent2 else 'none'
             )
 
         max_score = self.get_max_score()
         print "Generation #%d, Score: %d" % (self.number, max_score)
-        map(output_helper, filter(lambda i: i.fitness == max_score, self.population))
+        map(output_helper,
+            filter(lambda i: i.fitness == max_score, self.population))
 
     def get_max_score(self):
         """ Get the highest score of individuals in this generation """
@@ -92,7 +93,7 @@ class Fitness(object):
     """ Evaluate an field for fitness bases on the number of nodes visited """
     max_score = field_size = 25
 
-    def test(self, individual, output = False):
+    def test(self, individual, output=False):
         """ Test an individual and determine it's fitness score """
         field = self.get_empty_field()
         position = 0
@@ -101,8 +102,8 @@ class Fitness(object):
         for g in individual.genome.genes:
             field, position = self.move(field, position, g)
 
-        if output: 
-            self.print_field(field) 
+        if output:
+            self.print_field(field)
 
         return self.get_score(field)
 
@@ -144,12 +145,12 @@ class Fitness(object):
             'N': nop
         }[direction](position)
 
-
     def print_field(self, field):
         """ Display the visited nodes in a field """
         for i in range(len(field)):
             print '*' if field[i] == 1 else '.',
-            if i % 5 == 4: print
+            if i % 5 == 4:
+                print
 
     def get_score(self, field):
         """ Get the fitness score for a field """
@@ -166,7 +167,7 @@ class TournamentSelection(object):
         parents = []
 
         while len(parents) < len(population):
-            c2 = c1 = random.randint(0, len(population) - 1) 
+            c2 = c1 = random.randint(0, len(population) - 1)
 
             while c2 == c1:
                 c2 = random.randint(0, len(population) - 1)
@@ -190,11 +191,11 @@ class FitnessProportionateSelection(object):
 
         return parents
 
-
     def get_scoreboard(self, population):
         scoreboard = []
 
-        [[scoreboard.append(individual) for i in range(individual.fitness)] for individual in population]
+        [[scoreboard.append(individual) for i in range(individual.fitness)]
+            for individual in population]
 
         return scoreboard
 
@@ -210,40 +211,41 @@ class Environment(object):
 
     def seed(self, num_individuals, genome_length):
         """ Generate the first generation of individuals """
-        self.generations.append(Generation(1, self.get_random_population(num_individuals, genome_length)))
+        self.generations.append(Generation(1,
+            self.get_random_population(num_individuals, genome_length)))
         self.max_score = self.generations[-1].get_max_score()
         #self.generations[-1].output()
 
-    def run(self, output = True):
+    def run(self, output=True):
         """ Run one iteration """
         offspring = []
-        parents = self.selection.select_parents(self.generations[-1].population)
+        parents = self.selection.select_parents(
+            self.generations[-1].population)
 
         for i in range(0, len(parents), 2):
             offspring += parents[i].breed(parents[i + 1], self.mutate_chance)
 
         self.calculate_fitnesses(offspring)
-        self.generations.append(Generation(len(self.generations) + 1, offspring))
+        self.generations.append(Generation(len(self.generations) +
+                                           1, offspring))
         self.max_score = self.generations[-1].get_max_score()
 
-        if output: 
+        if output:
             self.generations[-1].output()
-
 
     def get_random_population(self, size, genome_length):
         """ Get a population of random invidivuals """
         population = []
 
         for i in range(size):
-            population.append(Individual(Genome.random(genome_length), None, None))
+            population.append(Individual(Genome.random(genome_length),
+                                         None, None))
 
         self.calculate_fitnesses(population)
 
         return population
-        
+
     def calculate_fitnesses(self, population):
         """ Calculate the fitness for a population of invidivuals """
         for individual in population:
             individual.fitness = self.fitness.test(individual)
-
-

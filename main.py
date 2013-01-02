@@ -1,10 +1,13 @@
 #!/usr/bin/python
-from genetic import *
+
+from genetic import Fitness, Environment
+from genetic import TournamentSelection, FitnessProportionateSelection
 
 MUTATE_CHANCE = 0.1
 GENOME_LENGTH = 30
 GENERATION_SIZE = 1000
 MAX_GENERATIONS = 1000
+
 
 def main():
     fitness = Fitness()

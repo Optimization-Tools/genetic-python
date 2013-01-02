@@ -5,6 +5,7 @@ from genetic import *
 GENOME_LENGTH = 25
 POPULATION_SIZE = 100
 
+
 class TestIndividual(unittest.TestCase):
     def test_breed(self):
         individual1 = Individual(Genome.random(GENOME_LENGTH), None, None)
@@ -113,7 +114,8 @@ class TestFitness(unittest.TestCase):
 class TestTournamentSelection(unittest.TestCase):
     def test_select_parents(self):
         selection = TournamentSelection()
-        population = [Individual(Genome.random(GENOME_LENGTH), None, None) for i in range(10)]
+        population = [Individual(Genome.random(GENOME_LENGTH), None, None)
+                      for i in range(10)]
         parents = selection.select_parents(population)
         self.assertEqual(len(parents), len(population))
 
@@ -126,7 +128,7 @@ class TestFitnessProportionateSelection(unittest.TestCase):
         individual1.fitness = 5
         individual2.fitness = 3
         parents = selection.select_parents([individual1, individual2])
-        self.assertEqual(len(parents), 2)        
+        self.assertEqual(len(parents), 2)
 
     def test_get_scoreboard(self):
         selection = FitnessProportionateSelection()
@@ -154,7 +156,6 @@ class TestEnvironment(unittest.TestCase):
         env = Environment(FitnessProportionateSelection(), Fitness(), 0)
         env.seed(POPULATION_SIZE, GENOME_LENGTH)
         env.run(False)
-
 
 
 if __name__ == "__main__":
