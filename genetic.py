@@ -11,12 +11,9 @@ class Individual(object):
 
     def breed(self, partner, mutation_chance):
         """ Breed this individual with another and generate two children """
-        children = []
-
         genes = self.genome.crossover(partner.genome, mutation_chance)
-        [children.append(Individual(g, self, partner)) for g in genes]
 
-        return children
+        return [Individual(g, self, partner) for g in genes]
 
 
 class Genome(object):
@@ -34,7 +31,7 @@ class Genome(object):
 
         offspring.append(Genome(self.genes[0:splice] + genome.genes[splice:]))
         offspring.append(Genome(genome.genes[0:splice] + self.genes[splice:]))
-        [o.mutate(mutation_chance) for o in offspring]
+        map(lambda o: o.mutate(mutation_chance), offspring)
 
         return offspring
 
@@ -192,12 +189,8 @@ class FitnessProportionateSelection(object):
         return parents
 
     def get_scoreboard(self, population):
-        scoreboard = []
-
-        [[scoreboard.append(individual) for i in range(individual.fitness)]
-            for individual in population]
-
-        return scoreboard
+        return [individual for individual in population
+                           for i in range(individual.fitness)]
 
 
 class Environment(object):
@@ -211,8 +204,9 @@ class Environment(object):
 
     def seed(self, num_individuals, genome_length):
         """ Generate the first generation of individuals """
-        self.generations.append(Generation(1,
-            self.get_random_population(num_individuals, genome_length)))
+        self.generations.append(
+            Generation(1, self.get_random_population(num_individuals,
+                                                     genome_length)))
         self.max_score = self.generations[-1].get_max_score()
         #self.generations[-1].output()
 
@@ -226,8 +220,8 @@ class Environment(object):
             offspring += parents[i].breed(parents[i + 1], self.mutate_chance)
 
         self.calculate_fitnesses(offspring)
-        self.generations.append(Generation(len(self.generations) +
-                                           1, offspring))
+        self.generations.append(Generation(len(self.generations) + 1,
+                                           offspring))
         self.max_score = self.generations[-1].get_max_score()
 
         if output:
@@ -235,12 +229,8 @@ class Environment(object):
 
     def get_random_population(self, size, genome_length):
         """ Get a population of random invidivuals """
-        population = []
-
-        for i in range(size):
-            population.append(Individual(Genome.random(genome_length),
-                                         None, None))
-
+        population = [Individual(Genome.random(genome_length), None, None)
+                      for i in range(size)]
         self.calculate_fitnesses(population)
 
         return population
