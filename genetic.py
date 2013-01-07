@@ -48,10 +48,10 @@ class Genome(object):
     def __str__(self):
         return self.genes
 
-    @staticmethod
-    def random(length):
+    @classmethod
+    def random(cls, length):
         """ Create a Genome with random genes """
-        return Genome(Genome.get_random_string(length))
+        return cls(cls.get_random_string(length))
 
     @staticmethod
     def get_random_string(length, chars=chromosomes):
