@@ -5,7 +5,7 @@ from genetic import TournamentSelection, FitnessProportionateSelection
 
 MUTATE_CHANCE = 0.1
 GENOME_LENGTH = 30
-GENERATION_SIZE = 1000
+GENERATION_SIZE = 10000
 MAX_GENERATIONS = 1000
 
 
@@ -18,6 +18,8 @@ def main():
     while generation < MAX_GENERATIONS and env.max_score < fitness.max_score:
         env.run()
         generation += 1
+
+    env.stop()
 
 if __name__ == "__main__":
     main()

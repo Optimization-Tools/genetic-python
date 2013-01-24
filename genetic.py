@@ -1,9 +1,14 @@
 import random
+import multiprocessing
+import zmq
+import uuid
+import json
 
 
 class Individual(object):
     """ An individual solution """
     def __init__(self, genome, parent1, parent2):
+        self.id = str(uuid.uuid4())
         self.genome = genome
         self.parent1 = parent1
         self.parent2 = parent2
@@ -78,8 +83,8 @@ class Generation(object):
 
         max_score = self.get_max_score()
         print "Generation #%d, Score: %d" % (self.number, max_score)
-        map(output_helper,
-            filter(lambda i: i.fitness == max_score, self.population))
+       # map(output_helper,
+        #    filter(lambda i: i.fitness == max_score, self.population))
 
     def get_max_score(self):
         """ Get the highest score of individuals in this generation """
@@ -90,13 +95,13 @@ class Fitness(object):
     """ Evaluate an field for fitness bases on the number of nodes visited """
     max_score = field_size = 25
 
-    def test(self, individual, output=False):
+    def test(self, genes, output=False):
         """ Test an individual and determine it's fitness score """
         field = self.get_empty_field()
         position = 0
         field[0] = 1
 
-        for g in individual.genome.genes:
+        for g in genes:
             field, position = self.move(field, position, g)
 
         if output:
@@ -193,14 +198,93 @@ class FitnessProportionateSelection(object):
                            for i in range(individual.fitness)]
 
 
+class FitnessWorker(multiprocessing.Process):
+    """ Do the work of evaluating fitness """
+    def run(self):
+        total = 0
+        fitness = Fitness()
+        pull = zmq.Context().socket(zmq.PULL)
+        pull.connect('ipc://genetic-source.ipc')
+        push = zmq.Context().socket(zmq.PUSH)
+        push.connect('ipc://genetic-sink.ipc')
+        sub = zmq.Context().socket(zmq.SUB)
+        sub.connect('ipc://genetic-cmd.ipc')
+        sub.setsockopt(zmq.SUBSCRIBE, '')
+
+        poller = zmq.Poller()
+        poller.register(pull, zmq.POLLIN)
+        poller.register(sub, zmq.POLLIN)
+
+        while True:
+            sockets = dict(poller.poll())
+
+            if pull in sockets and sockets[pull] == zmq.POLLIN:
+                [uuid, genes] = json.loads(pull.recv())
+                push.send(json.dumps([uuid, fitness.test(genes)]))
+                total += 1
+
+            if sub in sockets and sockets[sub] == zmq.POLLIN:
+                cmd = sub.recv()
+
+                if cmd == 'END':
+                    #print 'Worker processed: ', total, ' operations'
+                    break
+
+
+class FitnessSink(multiprocessing.Process):
+    """ Collect the results of fitness calculations """
+    def run(self):
+        pull = zmq.Context().socket(zmq.PULL)
+        pull.bind('ipc://genetic-sink.ipc')
+        rep = zmq.Context().socket(zmq.REP)
+        rep.bind('ipc://genetic-ctrl.ipc')
+
+        while True:
+            fitnesses = {}
+
+            # wait for start of batch and get count
+            count = json.loads(rep.recv())
+
+            if count == 'END':
+                break
+
+            for i in range(count):
+                [uuid, fitness] = json.loads(pull.recv())
+                fitnesses[uuid] = fitness
+
+            # return results
+            rep.send(json.dumps(fitnesses))
+
+
 class Environment(object):
     """ The environment in which generations exist """
+    WORKERS = 32
+
     def __init__(self, selection, fitness, mutate_chance):
         self.selection = selection
         self.fitness = fitness
         self.mutate_chance = mutate_chance
         self.generations = []
         self.max_score = 0
+        self.start_workers(Environment.WORKERS)
+
+    def start_workers(self, num):
+        self.workers = []
+        self.push = zmq.Context().socket(zmq.PUSH)
+        self.push.bind('ipc://genetic-source.ipc')
+        self.pub = zmq.Context().socket(zmq.PUB)
+        self.pub.bind('ipc://genetic-cmd.ipc')
+        self.req = zmq.Context().socket(zmq.REQ)
+        self.req.connect('ipc://genetic-ctrl.ipc')
+
+        FitnessSink().start()
+
+        for i in range(num):
+            self.workers.append(FitnessWorker().start())
+
+    def stop(self):
+        self.pub.send('END')
+        self.req.send(json.dumps('END'))
 
     def seed(self, num_individuals, genome_length):
         """ Generate the first generation of individuals """
@@ -208,7 +292,7 @@ class Environment(object):
             Generation(1, self.get_random_population(num_individuals,
                                                      genome_length)))
         self.max_score = self.generations[-1].get_max_score()
-        #self.generations[-1].output()
+        self.generations[-1].output()
 
     def run(self, output=True):
         """ Run one iteration """
@@ -237,5 +321,18 @@ class Environment(object):
 
     def calculate_fitnesses(self, population):
         """ Calculate the fitness for a population of invidivuals """
+        # start batch
+        self.req.send(json.dumps(len(population)))
+
+        # send tasks
         for individual in population:
-            individual.fitness = self.fitness.test(individual)
+            self.push.send(json.dumps([individual.id,
+                                       individual.genome.genes]))
+
+        # retrieve batch results
+        fitnesses = json.loads(self.req.recv())
+
+        for individual in population:
+            individual.fitness = fitnesses[individual.id]
+
+
